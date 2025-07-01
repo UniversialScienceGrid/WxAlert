@@ -9,8 +9,6 @@ import sys
 from io import BytesIO
 import xml.etree.ElementTree as ET
 
-# --- LOCATION DATABASE (Now simplified to be State-based) ---
-# This dictionary maps a State to its main severe weather warning file.
 STATE_MAP = {
     "Queensland": "IDQ21037.xml",
     "New South Wales": "IDN21037.xml",
@@ -19,12 +17,11 @@ STATE_MAP = {
     "Western Australia": "IDW21037.xml",
     "Tasmania": "IDT21037.xml",
     "Northern Territory": "IDD21037.xml",
-    "Australian Capital Territory": "IDN21037.xml" # ACT warnings are in the NSW file
+    "Australian Capital Territory": "IDN21037.xml" 
 }
 
 CONFIG_FILE = "config.json"
 
-# --- Severity mapping and the WeatherAlertApp class are the same ---
 SEVERITY_LEVELS = {
     "All Clear": {"color": "green", "icon": "✅"}, "Minor": {"color": "gold", "icon": "⚠️"},
     "Major": {"color": "red", "icon": "❗"}, "Deadly": {"color": "black", "text_color": "white", "icon": "☠️"},
@@ -32,7 +29,6 @@ SEVERITY_LEVELS = {
 }
 
 def determine_severity(warning_title):
-    # (This function is unchanged)
     title_lower = warning_title.lower()
     if "cancellation" in title_lower: return "All Clear"
     if "tornado" in title_lower or "destructive" in title_lower: return "Deadly"
@@ -46,7 +42,6 @@ class WeatherAlertApp:
         self.master.withdraw()
 
     def display_alert(self, alert_data):
-        # (This class is unchanged)
         severity_name = determine_severity(alert_data["title"])
         config = SEVERITY_LEVELS.get(severity_name, SEVERITY_LEVELS["Default"])
         if severity_name == "All Clear": return # Don't pop up for cancellations
@@ -68,7 +63,6 @@ class WeatherAlertApp:
         alert_window.focus_set()
         self.master.wait_window(alert_window)
 
-# --- Upgraded Configuration Functions ---
 def load_config():
     """Tries to load the configuration from config.json."""
     if not os.path.exists(CONFIG_FILE):
@@ -89,7 +83,6 @@ def run_first_time_setup():
     root = tk.Tk()
     root.withdraw()
 
-    # --- Step 1: Get the State ---
     state_options = "\n".join(STATE_MAP.keys())
     state_prompt = f"Welcome to WxAlert!\n\nPlease select your State by typing its name exactly as shown below:\n\n{state_options}"
     user_state = ""
@@ -101,7 +94,6 @@ def run_first_time_setup():
         if user_state not in STATE_MAP:
             messagebox.showwarning("Invalid State", f"'{user_state}' is not a valid location. Please try again.")
 
-    # --- Step 2: Get the Town ---
     town_prompt = "Now, please enter the name of your nearest Town or City.\n\n(e.g., Toowoomba, Cairns, Ipswich, etc.)"
     user_town = ""
     while not user_town:
@@ -113,7 +105,6 @@ def run_first_time_setup():
             messagebox.showwarning("Invalid Town", "Town/City name cannot be blank.")
             user_town = "" # Reset to re-trigger the loop
 
-    # --- Step 3: Save the configuration ---
     config_data = {
         "state": user_state,
         "town": user_town.strip(),
@@ -124,9 +115,7 @@ def run_first_time_setup():
     messagebox.showinfo("Setup Complete", f"WxAlert is now configured for '{user_town}, {user_state}'.\n\nThe program will now run silently in the background.")
     return config_data
 
-# --- Modified Core Functions ---
 def fetch_and_parse_warning(config):
-    """Connects to the BoM FTP and checks the state-wide file for the user's town."""
     try:
         ftp = ftplib.FTP("ftp.bom.gov.au", timeout=20)
         ftp.login()
@@ -140,7 +129,6 @@ def fetch_and_parse_warning(config):
         tree = ET.parse(flo)
         root = tree.getroot()
 
-        # Define the paths to find the data in the real XML structure
         path_to_area = ".//text[@type='warning_area_summary']/p"
         path_to_title = ".//text[@type='warning_title']/p"
         path_to_headline = ".//text[@type='warning_headline']"
@@ -152,7 +140,6 @@ def fetch_and_parse_warning(config):
         area_desc = area_element.text
         warning_id = root.find('.//amoc/identifier').text + root.find('.//amoc/issue-time-utc').text
 
-        # This is the new, more inclusive check!
         if config["town"].lower() in area_desc.lower():
             title = root.find(path_to_title).text
             headline = root.find(path_to_headline).text
@@ -163,19 +150,15 @@ def fetch_and_parse_warning(config):
             
     except ftplib.error_perm: return None # No active warning file, this is normal.
     except Exception as e:
-        # Silently log errors to the console without crashing the background process
         print(f"An error occurred during check: {e}")
         return None
     return None
 
 def main_loop(config):
-    """The main function that runs the check periodically."""
     root_tk = tk.Tk()
     app = WeatherAlertApp(root_tk)
     processed_warning_id = None
     
-    # Hide the console window on subsequent runs if this is a bundled .exe
-    # (This is more advanced and requires a different compilation flag)
     
     while True:
         try:
@@ -188,15 +171,14 @@ def main_loop(config):
             else:
                 processed_warning_id = None
 
-            time.sleep(300) # Check every 5 minutes
+            time.sleep(300)
             
         except KeyboardInterrupt:
             break
         except Exception as e:
             print(f"A critical error occurred in the main loop: {e}")
-            time.sleep(300) # Wait before retrying
+            time.sleep(300) 
 
-# --- Main Program Execution ---
 if __name__ == "__main__":
     config = load_config()
 
